@@ -1,0 +1,35 @@
+services:
+  user-service:
+    build: ./
+    container_name: user-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/users-mgt
+      - SPRING_DATASOURCE_USERNAME=users-mgt
+      - SPRING_DATASOURCE_PASSWORD=users-mgt
+#      - OTEL_METRICS_EXPORTER="logging"
+#      - OTEL_TRACES_EXPORTER="logging"
+#      - OTEL_LOGS_EXPORTER="logging"
+
+    networks:
+      - app-network
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: users-mgt
+      POSTGRES_PASSWORD: users-mgt
+      POSTGRES_DB: users-mgt
+    ports:
+      - "5432:5432"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
