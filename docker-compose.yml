@@ -1,3 +1,4 @@
+version: "3.9"
 
 services:
   user-service:
@@ -5,20 +6,25 @@ services:
     container_name: user-service
     ports:
       - "8080:8080"
+      - "9464:9464" # expose metrics for Prometheus
     depends_on:
       - postgres
-      - jaeger-all-in-one
+      - jaeger
+      - zipkin
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - OTEL_METRICS_EXPORTER=none
+      - OTEL_SERVICE_NAME=user-service
+      - OTEL_METRICS_EXPORTER=prometheus
+      - OTEL_TRACES_EXPORTER=otlp,zipkin
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
-      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_EXPORTER_ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
+      - OTEL_EXPORTER_PROMETHEUS_HOST=0.0.0.0
+      - OTEL_EXPORTER_PROMETHEUS_PORT=9464
       - OTEL_LOGS_EXPORTER=logging
+    networks:
+      - app-network
 
-  #    networks:
-  #      - app-network
-
-  jaeger-all-in-one:
+  jaeger:
     container_name: jaeger
     image: jaegertracing/all-in-one:latest
     environment:
@@ -28,12 +34,49 @@ services:
       - "16686:16686"
       - "4317:4317"
       - "4318:4318"
-  #    networks:
-  #      - app-network
+    networks:
+      - app-network
+
+  zipkin:
+    container_name: zipkin
+    image: openzipkin/zipkin:latest
+    restart: always
+    ports:
+      - "9411:9411"
+    networks:
+      - app-network
+
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:latest
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - user-service
+    restart: always
+    networks:
+      - app-network
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana:latest
+    volumes:
+      - ./docker/grafana/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    restart: always
+    networks:
+      - app-network
 
   postgres:
     container_name: postgres
-    image: postgres:latest
+    image: postgres:15
     restart: always
     environment:
       POSTGRES_USER: usersmgt
@@ -41,9 +84,9 @@ services:
       POSTGRES_DB: usersmgt
     ports:
       - "5432:5432"
-#    networks:
-#      - app-network
+    networks:
+      - app-network
 
-#networks:
-#  app-network:
-#    driver: bridge
+networks:
+  app-network:
+    driver: bridge
