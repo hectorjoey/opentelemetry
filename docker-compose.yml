@@ -1,3 +1,4 @@
+
 services:
   user-service:
     build: ./
@@ -6,30 +7,43 @@ services:
       - "8080:8080"
     depends_on:
       - postgres
+      - jaeger-all-in-one
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/users-mgt
-      - SPRING_DATASOURCE_USERNAME=users-mgt
-      - SPRING_DATASOURCE_PASSWORD=users-mgt
-#      - OTEL_METRICS_EXPORTER="logging"
-#      - OTEL_TRACES_EXPORTER="logging"
-#      - OTEL_LOGS_EXPORTER="logging"
+      - SPRING_PROFILES_ACTIVE=docker
+      - OTEL_METRICS_EXPORTER=none
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=logging
 
-    networks:
-      - app-network
+  #    networks:
+  #      - app-network
+
+  jaeger-all-in-one:
+    container_name: jaeger
+    image: jaegertracing/all-in-one:latest
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    restart: always
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+  #    networks:
+  #      - app-network
 
   postgres:
-    image: postgres:15
     container_name: postgres
+    image: postgres:latest
     restart: always
     environment:
-      POSTGRES_USER: users-mgt
-      POSTGRES_PASSWORD: users-mgt
-      POSTGRES_DB: users-mgt
+      POSTGRES_USER: usersmgt
+      POSTGRES_PASSWORD: usersmgt
+      POSTGRES_DB: usersmgt
     ports:
       - "5432:5432"
-    networks:
-      - app-network
+#    networks:
+#      - app-network
 
-networks:
-  app-network:
-    driver: bridge
+#networks:
+#  app-network:
+#    driver: bridge
